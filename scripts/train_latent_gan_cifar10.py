@@ -11,7 +11,7 @@ def main(args):
 
     generator = LatentGenerator(
         batch_size=args.batch_size,
-        heigth=args.height,
+        height=args.height,
         width=args.width,
     )
     discriminator = Discriminator()

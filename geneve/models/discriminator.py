@@ -1,6 +1,7 @@
 import torch
-from torch.nn import Module, Sequential, Linear, Conv2d, LeakyReLU, BatchNorm2d, ModuleList, AdaptiveAvgPool2d
 from einops.layers.torch import Rearrange
+from torch.nn import (AdaptiveAvgPool2d, BatchNorm2d, Conv2d, LeakyReLU,
+                      Linear, Module, Sequential, Sigmoid)
 
 
 class ConvBlock(Module):
@@ -31,7 +32,10 @@ class Discriminator(Module):
             AdaptiveAvgPool2d(output_size=(1, 1)),
             Rearrange('bs c 1 1 -> bs c'),
         )
-        self.head = Linear(n_channels, 1, bias=True)
+        self.head = Sequential(
+            Linear(n_channels, 1, bias=True),
+            Sigmoid(),
+        )
 
     def forward(self, x):
         x = self.rgb_block(x)
