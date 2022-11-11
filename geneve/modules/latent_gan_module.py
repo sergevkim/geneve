@@ -12,24 +12,25 @@ torch.backends.cudnn.deterministic = False
 
 
 class LatentGANModule(pl.LightningModule):
-    def __init__(self, generator, discriminator):
+    def __init__(self, generator, discriminator, lr: float = 3e-4):
         super().__init__()
         self.generator = generator
         self.discriminator = discriminator
 
         self.adversarial_criterion = BCELoss()
+        self.lr = lr
 
     def latent(self):
         batch_size = self.config.batch_gpu
-        z1 = torch.randn(batch_size, self.config.latent_dim).to(self.device)
-        z2 = torch.randn(batch_size, self.config.latent_dim).to(self.device)
+        z1 = torch.randn(batch_size, self.generator.latent_dim).to(self.device)
+        z2 = torch.randn(batch_size, self.generator.latent_dim).to(self.device)
         return z1, z2
 
     def training_step(self, batch, batch_idx, optimizer_idx):
         images, _ = batch
 
         # sample noise
-        z = torch.randn(images.shape[0], self.latent_dim)
+        z = torch.randn(images.shape[0], self.generator.latent_dim)
         z = z.type_as(images)
 
         ones = torch.ones(images.shape[0], 1)

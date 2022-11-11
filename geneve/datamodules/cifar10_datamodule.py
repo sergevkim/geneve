@@ -38,8 +38,8 @@ class CIFAR10Dataset(Dataset):
 class CIFAR10DataModule(LightningDataModule):
     def __init__(
         self,
+        batch_size: int,
         data_dir: str = './data/',
-        batch_size: int = 128,
         num_workers: int = 4,
         shuffle: bool = False,
         train_transforms: Optional[Callable] = None,

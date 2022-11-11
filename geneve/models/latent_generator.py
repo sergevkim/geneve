@@ -102,14 +102,14 @@ class SynthesisNetwork(Module):
 class LatentGenerator(Module):
     def __init__(
         self,
+        batch_size: int,
+        height: int,
+        width: int,
         latent_dim: int = 128,
         n_layers: int = 8,
         in_channels: int = 64,
         out_channels: int = 3,
         n_blocks: int = 8,
-        batch_size: int = 64,
-        height: int = 32,
-        width: int = 32,
     ):
         super().__init__()
         self.latent_dim = latent_dim
