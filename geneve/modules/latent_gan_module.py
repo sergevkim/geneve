@@ -2,6 +2,7 @@ import pytorch_lightning as pl
 import torch
 from cleanfid import fid
 from torch.nn import BCELoss
+from torch.optim import Adam
 
 from geneve.models import Discriminator, LatentGenerator
 
@@ -11,14 +12,10 @@ torch.backends.cudnn.deterministic = False
 
 
 class LatentGANModule(pl.LightningModule):
-    def __init__(self, config, latent_dim: int = 128):
+    def __init__(self, generator, discriminator):
         super().__init__()
-        self.save_hyperparameters(config)
-        self.latent_dim = latent_dim
-
-        self.config = config
-        self.G = LatentGenerator(config.latent_dim, config.latent_dim, config.num_mapping_layers, config.image_size, 3, synthesis_layer=config.generator)
-        self.D = Discriminator(config.image_size, 3)
+        self.generator = generator
+        self.discriminator = discriminator
 
         self.adversarial_criterion = BCELoss()
 
@@ -42,22 +39,22 @@ class LatentGANModule(pl.LightningModule):
 
         # generator
         if optimizer_idx == 0:
-            w = self.G.mapping_network(z)
+            w = self.generator.mapping_network(z)
             # TODO style mixing
-            generated_images = self.G.synthesis_network(w)
-            d_outputs = self.D(generated_images)
+            generated_images = self.generator.synthesis_network(w)
+            d_outputs = self.discriminator(generated_images)
 
             g_loss = self.adversarial_criterion(d_outputs, ones)
             return g_loss
 
         # discriminator
         if optimizer_idx == 1:
-            d_real_outputs = self.D(images)
+            d_real_outputs = self.discriminator(images)
             real_loss = self.adversarial_criterion(d_real_outputs, ones)
 
             w = self.mapping_network(z)
-            generated_images = self.G(w)
-            d_fake_outputs = self.D(generated_images)
+            generated_images = self.generator(w)
+            d_fake_outputs = self.discriminator(generated_images)
             fake_loss = self.adversarial_criterion(d_fake_outputs, zeros)
 
             d_loss = real_loss + fake_loss
@@ -68,7 +65,7 @@ class LatentGANModule(pl.LightningModule):
         pass
 
     def configure_optimizers(self):
-        g_opt = torch.optim.Adam(list(self.G.parameters()), lr=self.config.lr_g, betas=(0.0, 0.99), eps=1e-8)
-        d_opt = torch.optim.Adam(self.D.parameters(), lr=self.config.lr_d, betas=(0.0, 0.99), eps=1e-8)
-        return g_opt, d_opt
+        g_opt = Adam(self.generator.parameters(), lr=self.lr)
+        d_opt = Adam(self.discriminator.parameters(), lr=self.lr)
 
+        return g_opt, d_opt

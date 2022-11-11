@@ -36,11 +36,6 @@ class StyleGAN2Module(pl.LightningModule):
         self.automatic_optimization = False
         self.path_length_penalty = PathLengthPenalty(0.01, 2)
 
-    def configure_optimizers(self):
-        g_opt = torch.optim.Adam(list(self.G.parameters()), lr=self.config.lr_g, betas=(0.0, 0.99), eps=1e-8)
-        d_opt = torch.optim.Adam(self.D.parameters(), lr=self.config.lr_d, betas=(0.0, 0.99), eps=1e-8)
-        return g_opt, d_opt
-
     def latent(self):
         batch_size = self.config.batch_gpu
         z1 = torch.randn(batch_size, self.config.latent_dim).to(self.device)
@@ -139,11 +134,6 @@ class StyleGAN2Module(pl.LightningModule):
 
         self.execute_ada_heuristics()
 
-    def execute_ada_heuristics(self):
-        if (self.global_step + 1) % self.config.ada_interval == 0:
-            self.augment_pipe.heuristic_update()
-        self.log("aug_p", self.augment_pipe.p.item(), on_step=True, on_epoch=False, prog_bar=False, logger=True, sync_dist=True)
-
     def validation_step(self, batch, batch_idx):
         pass
 
@@ -162,12 +152,6 @@ class StyleGAN2Module(pl.LightningModule):
         print(f'FID: {fid_score:.3f} , KID: {kid_score:.3f}')
         shutil.rmtree(odir_real.parent)
 
-    def train_dataloader(self):
-        return DataLoader(self.train_set, self.config.batch_size, shuffle=True, pin_memory=True, drop_last=True, num_workers=self.config.num_workers)
-
-    def val_dataloader(self):
-        return DataLoader(self.val_set, self.config.batch_gpu, shuffle=True, drop_last=True, num_workers=self.config.num_workers)
-
     def export_images(self, prefix, output_dir_vis, output_dir_fid):
         vis_generated_images = []
         for iter_idx, latent in enumerate(self.grid_z.split(self.config.batch_gpu)):
@@ -182,13 +166,10 @@ class StyleGAN2Module(pl.LightningModule):
         vis_generated_images = torch.cat(vis_generated_images, dim=0)
         save_image(vis_generated_images, output_dir_vis / f"{prefix}{self.global_step:06d}.png", nrow=int(math.sqrt(vis_generated_images.shape[0])), value_range=(-1, 1), normalize=True)
 
-    def create_directories(self):
-        output_dir_fid_real = Path(f'runs/{self.config.experiment}/fid/real')
-        output_dir_fid_fake = Path(f'runs/{self.config.experiment}/fid/fake')
-        output_dir_fid_samples = Path(f'runs/{self.config.experiment}/images/')
-        for odir in [output_dir_fid_real, output_dir_fid_fake, output_dir_fid_samples]:
-            odir.mkdir(exist_ok=True, parents=True)
-        return output_dir_fid_real, output_dir_fid_fake, output_dir_fid_samples
+    def configure_optimizers(self):
+        g_opt = torch.optim.Adam(self.G.parameters(), lr=self.lr)
+        d_opt = torch.optim.Adam(self.D.parameters(), lr=self.lr)
+        return g_opt, d_opt
 
 
 @hydra.main(config_path='../config', config_name='stylegan2')
