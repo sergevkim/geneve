@@ -9,7 +9,11 @@ from pytorch_lightning import Trainer, seed_everything
 def main(args):
     seed_everything(9, workers=True)
 
-    generator = LatentGenerator(batch_size=args.batch_size)
+    generator = LatentGenerator(
+        batch_size=args.batch_size,
+        heigth=args.height,
+        width=args.width,
+    )
     discriminator = Discriminator()
     module = LatentGANModule(generator=generator, discriminator=discriminator)
     datamodule = CIFAR10DataModule(batch_size=args.batch_size)
