@@ -3,7 +3,7 @@ from setuptools import find_packages, setup
 
 
 def main():
-    package_name = 'mlpt'
+    package_name = 'geneve'
     packages = find_packages(package_name)
     packages = list(map(lambda x: f'{package_name}/{x}', packages))
     reqs = [str(req) for req in parse_requirements(open('requirements.txt'))]

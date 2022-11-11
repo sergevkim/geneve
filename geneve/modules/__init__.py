@@ -1,0 +1,1 @@
+from .latent_gan_module import LatentGANModule
