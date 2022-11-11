@@ -44,8 +44,8 @@ class LatentGANModule(pl.LightningModule):
             # TODO style mixing
             generated_images = self.generator.synthesis_network(w)
             d_outputs = self.discriminator(generated_images)
-
             g_loss = self.adversarial_criterion(d_outputs, ones)
+
             return g_loss
 
         # discriminator
@@ -53,8 +53,8 @@ class LatentGANModule(pl.LightningModule):
             d_real_outputs = self.discriminator(images)
             real_loss = self.adversarial_criterion(d_real_outputs, ones)
 
-            w = self.mapping_network(z)
-            generated_images = self.generator(w)
+            w = self.generator.mapping_network(z)
+            generated_images = self.generator.synthesis_network(w)
             d_fake_outputs = self.discriminator(generated_images)
             fake_loss = self.adversarial_criterion(d_fake_outputs, zeros)
 
