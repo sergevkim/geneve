@@ -91,7 +91,7 @@ class SynthesisNetwork(Module):
 
     def forward(self, w, x=None):
         if x is None:
-            x = self.const_input
+            x = self.const_input.to(w)
 
         for block in self.style_blocks:
             x = block(x, w)

@@ -1,14 +1,13 @@
+from pathlib import Path
+
+import cv2
+import einops
 import pytorch_lightning as pl
 import torch
+import torchvision
 from cleanfid import fid
 from torch.nn import BCELoss
 from torch.optim import Adam
-
-from geneve.models import Discriminator, LatentGenerator
-
-torch.backends.cudnn.benchmark = True
-torch.backends.cudnn.allow_tf32 = True
-torch.backends.cudnn.deterministic = False
 
 
 class LatentGANModule(pl.LightningModule):
@@ -19,6 +18,8 @@ class LatentGANModule(pl.LightningModule):
 
         self.adversarial_criterion = BCELoss()
         self.lr = lr
+        self.generated_images_dir = Path('data/generated')
+        self.generated_images_dir.mkdir(parents=True, exist_ok=True)
 
     def latent(self):
         batch_size = self.config.batch_gpu
@@ -32,17 +33,17 @@ class LatentGANModule(pl.LightningModule):
         # sample noise
         z = torch.randn(images.shape[0], self.generator.latent_dim)
         z = z.type_as(images)
+        w = self.generator.mapping_network(z)
+        generated_images = self.generator.synthesis_network(w)
 
-        ones = torch.ones(images.shape[0], 1)
+        ones = torch.ones(images.shape[0], 1).to(images)
         ones.type_as(images)
-        zeros = torch.zeros(images.shape[0], 1)
+        zeros = torch.zeros(images.shape[0], 1).to(images)
         zeros.type_as(images)
 
         # generator
         if optimizer_idx == 0:
-            w = self.generator.mapping_network(z)
             # TODO style mixing
-            generated_images = self.generator.synthesis_network(w)
             d_outputs = self.discriminator(generated_images)
             g_loss = self.adversarial_criterion(d_outputs, ones)
 
@@ -52,18 +53,41 @@ class LatentGANModule(pl.LightningModule):
         if optimizer_idx == 1:
             d_real_outputs = self.discriminator(images)
             real_loss = self.adversarial_criterion(d_real_outputs, ones)
-
-            w = self.generator.mapping_network(z)
-            generated_images = self.generator.synthesis_network(w)
             d_fake_outputs = self.discriminator(generated_images)
             fake_loss = self.adversarial_criterion(d_fake_outputs, zeros)
-
             d_loss = real_loss + fake_loss
 
             return d_loss
 
+    @torch.inference_mode()
     def validation_step(self, batch, batch_idx):
-        pass
+        images, _ = batch
+        if batch_idx == 0:
+            z = torch.randn(images.shape[0], self.generator.latent_dim)
+            z = z.type_as(images)
+            w = self.generator.mapping_network(z)
+            generated_images = self.generator.synthesis_network(w)
+            images_grid = \
+                torchvision.utils.make_grid(generated_images).cpu().numpy()
+            images_grid = einops.rearrange(images_grid, 'c h w -> h w c')
+            #self.log() TODO log images
+
+        for image_idx, image in enumerate(images):
+            cv2.imwrite(
+                f'{self.generated_images_dir}/{batch_idx}_{image_idx}',
+                image,
+            )
+
+
+    def validation_epoch_end(self):
+        fid_score = fid.compute_fid(
+            self.generated_images_dir,
+            dataset_name="cifar10",
+            dataset_res=32,
+            dataset_split="test",
+        )
+        self.log(fid_score)
+
 
     def configure_optimizers(self):
         g_opt = Adam(self.generator.parameters(), lr=self.lr)
