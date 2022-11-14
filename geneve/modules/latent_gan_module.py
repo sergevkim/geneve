@@ -6,12 +6,19 @@ import pytorch_lightning as pl
 import torch
 import torchvision
 from cleanfid import fid
-from torch.nn import BCELoss
+from torch.nn import BCELoss, Module
 from torch.optim import Adam
 
 
 class LatentGANModule(pl.LightningModule):
-    def __init__(self, generator, discriminator, lr: float = 3e-4):
+    def __init__(
+        self,
+        generator: Module,
+        discriminator: Module,
+        lr: float = 3e-4,
+        batch_size: int = 500,
+        n_batches: int = 20,
+    ):
         super().__init__()
         self.generator = generator
         self.discriminator = discriminator
@@ -20,6 +27,10 @@ class LatentGANModule(pl.LightningModule):
         self.lr = lr
         self.generated_images_dir = Path('data/generated')
         self.generated_images_dir.mkdir(parents=True, exist_ok=True)
+
+        assert n_batches * batch_size >= 10000
+        self.batch_size = batch_size
+        self.n_batches = n_batches
 
     def latent(self):
         batch_size = self.config.batch_gpu
@@ -46,6 +57,7 @@ class LatentGANModule(pl.LightningModule):
             # TODO style mixing
             d_outputs = self.discriminator(generated_images)
             g_loss = self.adversarial_criterion(d_outputs, ones)
+            self.log('g_loss', g_loss)
 
             return g_loss
 
@@ -56,38 +68,65 @@ class LatentGANModule(pl.LightningModule):
             d_fake_outputs = self.discriminator(generated_images)
             fake_loss = self.adversarial_criterion(d_fake_outputs, zeros)
             d_loss = real_loss + fake_loss
+            self.log('d_loss', d_loss)
 
             return d_loss
 
+    # @torch.inference_mode()
+    # def validation_step(self, batch, batch_idx):
+    #     images, _ = batch
+
+    #     if batch_idx == 0:
+    #         z = torch.randn(images.shape[0], self.generator.latent_dim)
+    #         z = z.type_as(images)
+    #         w = self.generator.mapping_network(z)
+    #         generated_images = self.generator.synthesis_network(w)
+    #         images_grid = \
+    #             torchvision.utils.make_grid(generated_images).cpu().numpy()
+    #         images_grid = einops.rearrange(images_grid, 'c h w -> h w c')
+    #         self.logger.experiment.log_image(key="images", images=[images_grid])
+
+    #     for image_idx, image in enumerate(images):
+    #         cv2.imwrite(
+    #             f'{self.generated_images_dir}/{batch_idx}_{image_idx}.png',
+    #             image,
+    #         )
+
     @torch.inference_mode()
-    def validation_step(self, batch, batch_idx):
-        images, _ = batch
-        if batch_idx == 0:
-            z = torch.randn(images.shape[0], self.generator.latent_dim)
-            z = z.type_as(images)
+    def validation_epoch_end(self):
+        z = torch.randn(512, self.generator.latent_dim)
+        #z = z.type_as(images)
+        w = self.generator.mapping_network(z)
+        generated_images = self.generator.synthesis_network(w)
+        images_grid = \
+            torchvision.utils.make_grid(generated_images).cpu().numpy()
+        images_grid = einops.rearrange(images_grid, 'c h w -> h w c')
+        self.logger.experiment.log_image(key="images", images=[images_grid])
+
+        for batch_idx in range(self.n_batches):
+            z = torch.randn(self.batch_size, self.generator.latent_dim)
+            #z = z.type_as(images)
             w = self.generator.mapping_network(z)
             generated_images = self.generator.synthesis_network(w)
             images_grid = \
                 torchvision.utils.make_grid(generated_images).cpu().numpy()
             images_grid = einops.rearrange(images_grid, 'c h w -> h w c')
-            #self.log() TODO log images
+            self.logger.experiment.log_image(key="images", images=[images_grid])
+            generated_images = generated_images.cpu().numpy()
 
-        for image_idx, image in enumerate(images):
-            cv2.imwrite(
-                f'{self.generated_images_dir}/{batch_idx}_{image_idx}',
-                image,
-            )
+            for image_idx, image in enumerate(generated_images):
+                cv2.imwrite(
+                    f'{self.generated_images_dir}/{batch_idx}_{image_idx}.png',
+                    image,
+                )
 
-
-    def validation_epoch_end(self):
         fid_score = fid.compute_fid(
             self.generated_images_dir,
             dataset_name="cifar10",
             dataset_res=32,
             dataset_split="test",
         )
-        self.log(fid_score)
-
+        self.log('fid_score', fid_score)
 
     def configure_optimizers(self):
         g_opt = Adam(self.generator.parameters(), lr=self.lr)
