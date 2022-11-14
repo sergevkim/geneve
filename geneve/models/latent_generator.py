@@ -70,7 +70,10 @@ class SynthesisNetwork(Module):
     ):
         super().__init__()
         self.n_blocks = n_blocks
-        self.const_input = Parameter(torch.randn(out_channels, height, width))
+        self.in_channels = in_channels
+        self.height = height
+        self.width = width
+        self.const_input = Parameter(torch.randn(in_channels, height, width))
 
         style_blocks_list = list()
         for _ in range(n_blocks - 1):
@@ -94,6 +97,9 @@ class SynthesisNetwork(Module):
         if x is None:
             bs = w.shape[0]
             x = einops.repeat(self.const_input, 'c h w -> bs c h w', bs=bs)
+
+        noise = torch.randn(bs, self.in_channels, self.height, self.width)
+        x = x + noise
 
         for block in self.style_blocks:
             x = block(x, w)
@@ -130,7 +136,7 @@ class LatentGenerator(Module):
         return self.synthesis_network(w)
 
     def generate_random(self):
-        noise = torch.randn(self.batch_size, self.latent_dim)
+        noise = torch.randn(8, self.latent_dim)
         return self.forward(noise)
 
 
@@ -143,9 +149,13 @@ if __name__ == '__main__':
     print('adain check: ', images.shape, style.shape)
     outs = adain(images, style)
 
-    G = LatentGenerator()
+    G = LatentGenerator(height=32, width=32)
     z = torch.randn(batch_size, 128)
     w = G.mapping_network(z)
     outs = G.synthesis_network(w)
     print('generator check: ', w.shape, outs.shape)
     print(G.generate_random().shape)
+
+    print('====')
+    print(outs[0,0,:3,:3])
+    print(outs[1,0,:3,:3])

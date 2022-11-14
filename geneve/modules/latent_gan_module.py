@@ -5,6 +5,7 @@ import einops
 import pytorch_lightning as pl
 import torch
 import torchvision
+import wandb
 from cleanfid import fid
 from torch.nn import BCELoss, Module
 from torch.optim import Adam
@@ -83,7 +84,7 @@ class LatentGANModule(pl.LightningModule):
         images_grid = \
             torchvision.utils.make_grid(generated_images).cpu().numpy()
         images_grid = einops.rearrange(images_grid, 'c h w -> h w c')
-        self.logger.experiment.log_image(key="images", images=[images_grid])
+        self.logger.experiment.log({"images": [wandb.Image(images_grid)]})
 
         for batch_idx in range(self.n_batches):
             z = torch.randn(
@@ -92,6 +93,8 @@ class LatentGANModule(pl.LightningModule):
             ).to(self.device)
             w = self.generator.mapping_network(z)
             generated_images = self.generator.synthesis_network(w).cpu().numpy()
+            generated_images = \
+                einops.rearrange(generated_images, 'bs c h w -> bs h w c')
 
             for image_idx, image in enumerate(generated_images):
                 cv2.imwrite(
@@ -100,7 +103,7 @@ class LatentGANModule(pl.LightningModule):
                 )
 
         fid_score = fid.compute_fid(
-            self.generated_images_dir,
+            str(self.generated_images_dir),
             dataset_name="cifar10",
             dataset_res=32,
             dataset_split="test",
