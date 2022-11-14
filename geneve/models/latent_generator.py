@@ -97,9 +97,13 @@ class SynthesisNetwork(Module):
         if x is None:
             bs = w.shape[0]
             x = einops.repeat(self.const_input, 'c h w -> bs c h w', bs=bs)
-
-        noise = torch.randn(bs, self.in_channels, self.height, self.width)
-        x = x + noise
+            noise = torch.randn(
+                bs,
+                self.in_channels,
+                self.height,
+                self.width,
+            ).to(x.device)
+            x = x + noise
 
         for block in self.style_blocks:
             x = block(x, w)
