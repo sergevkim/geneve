@@ -12,11 +12,7 @@ from geneve.modules import LatentGANModule
 def main(args):
     seed_everything(9, workers=True)
 
-    generator = LatentGenerator(
-        batch_size=args.batch_size,
-        height=args.height,
-        width=args.width,
-    )
+    generator = LatentGenerator(height=args.height, width=args.width)
     discriminator = Discriminator()
     module = LatentGANModule(generator=generator, discriminator=discriminator)
     datamodule = CIFAR10DataModule(batch_size=args.batch_size)

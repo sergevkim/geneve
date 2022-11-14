@@ -1,5 +1,7 @@
+import einops
 import torch
-from torch.nn import Module, Sequential, Linear, Conv2d, LeakyReLU, InstanceNorm2d, ModuleList
+from torch.nn import (Conv2d, InstanceNorm2d, LeakyReLU, Linear, Module,
+                      ModuleList, Parameter, Sequential)
 
 
 class MappingNetwork(Module):
@@ -63,13 +65,12 @@ class SynthesisNetwork(Module):
         out_channels: int,
         latent_dim: int,
         n_blocks: int,
-        batch_size: int,
         height: int,
         width: int,
     ):
         super().__init__()
         self.n_blocks = n_blocks
-        self.const_input = torch.randn(batch_size, in_channels, height, width)
+        self.const_input = Parameter(torch.randn(out_channels, height, width))
 
         style_blocks_list = list()
         for _ in range(n_blocks - 1):
@@ -91,7 +92,7 @@ class SynthesisNetwork(Module):
 
     def forward(self, w, x=None):
         if x is None:
-            x = self.const_input.to(w)
+            x = einops.repeat(self.const_input, 'h w -> bs h w', bs=w[0])
 
         for block in self.style_blocks:
             x = block(x, w)
@@ -102,7 +103,6 @@ class SynthesisNetwork(Module):
 class LatentGenerator(Module):
     def __init__(
         self,
-        batch_size: int,
         height: int,
         width: int,
         latent_dim: int = 128,
@@ -113,7 +113,6 @@ class LatentGenerator(Module):
     ):
         super().__init__()
         self.latent_dim = latent_dim
-        self.batch_size = batch_size
         self.mapping_network = \
             MappingNetwork(latent_dim=latent_dim, n_layers=n_layers)
         self.synthesis_network = SynthesisNetwork(
@@ -121,7 +120,6 @@ class LatentGenerator(Module):
             out_channels=out_channels,
             latent_dim=latent_dim,
             n_blocks=n_blocks,
-            batch_size=batch_size,
             height=height,
             width=width,
         )
