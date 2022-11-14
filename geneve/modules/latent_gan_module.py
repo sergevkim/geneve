@@ -76,9 +76,8 @@ class LatentGANModule(pl.LightningModule):
         pass
 
     @torch.inference_mode()
-    def validation_epoch_end(self):
-        z = torch.randn(512, self.generator.latent_dim)
-        #z = z.type_as(images)
+    def validation_epoch_end(self, val_step_outputs):
+        z = torch.randn(16, self.generator.latent_dim)
         w = self.generator.mapping_network(z)
         generated_images = self.generator.synthesis_network(w)
         images_grid = \
@@ -88,14 +87,8 @@ class LatentGANModule(pl.LightningModule):
 
         for batch_idx in range(self.n_batches):
             z = torch.randn(self.batch_size, self.generator.latent_dim)
-            #z = z.type_as(images)
             w = self.generator.mapping_network(z)
-            generated_images = self.generator.synthesis_network(w)
-            images_grid = \
-                torchvision.utils.make_grid(generated_images).cpu().numpy()
-            images_grid = einops.rearrange(images_grid, 'c h w -> h w c')
-            self.logger.experiment.log_image(key="images", images=[images_grid])
-            generated_images = generated_images.cpu().numpy()
+            generated_images = self.generator.synthesis_network(w).cpu().numpy()
 
             for image_idx, image in enumerate(generated_images):
                 cv2.imwrite(
