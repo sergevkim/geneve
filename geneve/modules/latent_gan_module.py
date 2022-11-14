@@ -72,25 +72,8 @@ class LatentGANModule(pl.LightningModule):
 
             return d_loss
 
-    # @torch.inference_mode()
-    # def validation_step(self, batch, batch_idx):
-    #     images, _ = batch
-
-    #     if batch_idx == 0:
-    #         z = torch.randn(images.shape[0], self.generator.latent_dim)
-    #         z = z.type_as(images)
-    #         w = self.generator.mapping_network(z)
-    #         generated_images = self.generator.synthesis_network(w)
-    #         images_grid = \
-    #             torchvision.utils.make_grid(generated_images).cpu().numpy()
-    #         images_grid = einops.rearrange(images_grid, 'c h w -> h w c')
-    #         self.logger.experiment.log_image(key="images", images=[images_grid])
-
-    #     for image_idx, image in enumerate(images):
-    #         cv2.imwrite(
-    #             f'{self.generated_images_dir}/{batch_idx}_{image_idx}.png',
-    #             image,
-    #         )
+    def validation_step(self, batch, batch_idx):
+        pass
 
     @torch.inference_mode()
     def validation_epoch_end(self):
