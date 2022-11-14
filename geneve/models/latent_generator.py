@@ -92,7 +92,7 @@ class SynthesisNetwork(Module):
 
     def forward(self, w, x=None):
         if x is None:
-            x = einops.repeat(self.const_input, 'h w -> bs h w', bs=w[0])
+            x = einops.repeat(self.const_input, 'c h w -> bs c h w', bs=w[0])
 
         for block in self.style_blocks:
             x = block(x, w)
