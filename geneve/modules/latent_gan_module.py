@@ -64,7 +64,7 @@ class LatentGANModule(pl.LightningModule):
 
         # discriminator
         if optimizer_idx == 1:
-            if batch % 5 == 0:
+            if batch_idx % 5 == 0:
                 d_real_outputs = self.discriminator(images)
                 real_loss = self.adversarial_criterion(d_real_outputs, ones)
                 d_fake_outputs = self.discriminator(generated_images)

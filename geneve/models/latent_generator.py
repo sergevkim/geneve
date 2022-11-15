@@ -103,9 +103,9 @@ class SynthesisNetwork(Module):
                 self.height,
                 self.width,
             ).to(x.device)
-            x = x + 0.1 * noise
 
         for block in self.style_blocks:
+            x = x + 0.1 * noise
             x = block(x, w)
 
         return x
