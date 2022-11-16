@@ -32,7 +32,7 @@ class SimpleGANModule(pl.LightningModule):
 
         # sample noise
         bs, channels, height, width = images.shape
-        w = torch.randn((bs, 128, 1, 1))
+        w = torch.randn((bs, 128, 1, 1)).to(self.device)
         generated_images = self.generator(w)
 
         ones = torch.ones(images.shape[0], 1).to(self.device)
