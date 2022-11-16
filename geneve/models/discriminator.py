@@ -22,7 +22,7 @@ class ConvBlock(Module):
 
 
 class Discriminator(Module):
-    def __init__(self, n_channels: int = 64, n_blocks: int = 4):
+    def __init__(self, n_channels: int = 64, n_blocks: int = 8):
         super().__init__()
         self.rgb_block = ConvBlock(3, n_channels)
         self.blocks = Sequential(*[

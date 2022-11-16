@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import cv2
 import einops
 import pytorch_lightning as pl
@@ -11,14 +9,12 @@ from torch.nn import BCELoss, Module
 from torch.optim import Adam
 
 
-class LatentGANModule(pl.LightningModule):
+class SimpleGANModule(pl.LightningModule):
     def __init__(
         self,
         generator: Module,
         discriminator: Module,
         lr: float = 3e-4,
-        batch_size: int = 500,
-        n_batches: int = 20,
     ):
         super().__init__()
         self.generator = generator
@@ -26,36 +22,20 @@ class LatentGANModule(pl.LightningModule):
 
         self.adversarial_criterion = BCELoss()
         self.lr = lr
-        self.generated_images_dir = Path('data/generated')
-        self.generated_images_dir.mkdir(parents=True, exist_ok=True)
-
-        assert n_batches * batch_size >= 10000
-        self.batch_size = batch_size
-        self.n_batches = n_batches
-
-    def latent(self):
-        batch_size = self.config.batch_gpu
-        z1 = torch.randn(batch_size, self.generator.latent_dim).to(self.device)
-        z2 = torch.randn(batch_size, self.generator.latent_dim).to(self.device)
-        return z1, z2
 
     def training_step(self, batch, batch_idx, optimizer_idx):
         images, _ = batch
 
         # sample noise
-        z = torch.randn(images.shape[0], self.generator.latent_dim)
-        z = z.type_as(images)
-        w = self.generator.mapping_network(z)
-        generated_images = self.generator.synthesis_network(w)
+        bs, channels, height, width = images.shape
+        w = torch.randn((bs, 128, 1, 1))
+        generated_images = self.generator(w)
 
         ones = torch.ones(images.shape[0], 1).to(self.device)
-        ones.type_as(images)
         zeros = torch.zeros(images.shape[0], 1).to(self.device)
-        zeros.type_as(images)
 
         # generator
         if optimizer_idx == 0:
-            # TODO style mixing
             d_outputs = self.discriminator(generated_images)
             g_loss = self.adversarial_criterion(d_outputs, ones)
             self.log('g_loss', g_loss)
@@ -79,21 +59,16 @@ class LatentGANModule(pl.LightningModule):
 
     @torch.inference_mode()
     def validation_epoch_end(self, val_step_outputs):
-        z = torch.randn(16, self.generator.latent_dim).to(self.device)
-        w = self.generator.mapping_network(z)
-        generated_images = self.generator.synthesis_network(w)
+        w = torch.randn(16, 128, 1, 1).to(self.device)
+        generated_images = self.generator(w)
         images_grid = \
             torchvision.utils.make_grid(generated_images).cpu().numpy()
         images_grid = einops.rearrange(images_grid, 'c h w -> h w c')
         self.logger.experiment.log({"images": [wandb.Image(images_grid)]})
 
         for batch_idx in range(self.n_batches):
-            z = torch.randn(
-                self.batch_size,
-                self.generator.latent_dim,
-            ).to(self.device)
-            w = self.generator.mapping_network(z)
-            generated_images = self.generator.synthesis_network(w).cpu().numpy()
+            w = torch.randn(16, 128, 1, 1).to(self.device)
+            generated_images = self.generator(w).cpu().numpy()
             generated_images = \
                 einops.rearrange(generated_images, 'bs c h w -> bs h w c')
 
