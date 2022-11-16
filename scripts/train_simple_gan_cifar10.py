@@ -12,7 +12,7 @@ from geneve.modules import SimpleGANModule
 def main(args):
     seed_everything(9, workers=True)
 
-    generator = SimpleGenerator(height=args.height, width=args.width)
+    generator = SimpleGenerator()
     discriminator = Discriminator()
     module = SimpleGANModule(generator=generator, discriminator=discriminator)
     datamodule = CIFAR10DataModule(batch_size=args.batch_size)
@@ -31,7 +31,5 @@ if __name__ == '__main__':
     parser = ArgumentParser()
     parser = Trainer.add_argparse_args(parser)
     parser.add_argument('--batch_size', type=int, default=512)
-    parser.add_argument('--height', type=int, default=32)
-    parser.add_argument('--width', type=int, default=32)
     args = parser.parse_args()
     main(args)

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import cv2
 import einops
 import pytorch_lightning as pl
@@ -22,6 +24,8 @@ class SimpleGANModule(pl.LightningModule):
 
         self.adversarial_criterion = BCELoss()
         self.lr = lr
+        self.generated_images_dir = Path('data/generated')
+        self.generated_images_dir.mkdir(parents=True, exist_ok=True)
 
     def training_step(self, batch, batch_idx, optimizer_idx):
         images, _ = batch
@@ -66,8 +70,8 @@ class SimpleGANModule(pl.LightningModule):
         images_grid = einops.rearrange(images_grid, 'c h w -> h w c')
         self.logger.experiment.log({"images": [wandb.Image(images_grid)]})
 
-        for batch_idx in range(self.n_batches):
-            w = torch.randn(16, 128, 1, 1).to(self.device)
+        for batch_idx in range(40):
+            w = torch.randn(250, 128, 1, 1).to(self.device)
             generated_images = self.generator(w).cpu().numpy()
             generated_images = \
                 einops.rearrange(generated_images, 'bs c h w -> bs h w c')
