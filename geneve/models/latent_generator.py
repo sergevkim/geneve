@@ -1,7 +1,7 @@
 import einops
 import torch
 from torch.nn import (Conv2d, InstanceNorm2d, LeakyReLU, Linear, Module,
-                      ModuleList, Parameter, Sequential)
+                      ModuleList, Parameter, Sequential, Tanh)
 
 
 class MappingNetwork(Module):
@@ -85,10 +85,18 @@ class SynthesisNetwork(Module):
                 )
             )
         style_blocks_list.append(
-            StyleBlock(
-                in_channels=in_channels,
-                out_channels=out_channels,
-                latent_dim=latent_dim,
+            Sequential(
+                StyleBlock(
+                    in_channels=in_channels,
+                    out_channels=out_channels,
+                    latent_dim=latent_dim,
+                ),
+                Conv2d(
+                    in_channels=in_channels,
+                    out_channels=out_channels,
+                    kernel_size=1,
+                ),
+                Tanh(),
             )
         )
         self.style_blocks = ModuleList(style_blocks_list)

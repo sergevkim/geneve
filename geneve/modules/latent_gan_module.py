@@ -18,7 +18,7 @@ class LatentGANModule(pl.LightningModule):
         discriminator: Module,
         lr: float = 3e-4,
         batch_size: int = 500,
-        n_batches: int = 20,
+        n_batches: int = 10,
     ):
         super().__init__()
         self.generator = generator
@@ -39,7 +39,8 @@ class LatentGANModule(pl.LightningModule):
         z2 = torch.randn(batch_size, self.generator.latent_dim).to(self.device)
         return z1, z2
 
-    def training_step(self, batch, batch_idx, optimizer_idx):
+    def training_step(self, batch, batch_idx) -> None:
+        g_opt, d_opt = self.optimizers()
         images, _ = batch
 
         # sample noise
@@ -53,26 +54,26 @@ class LatentGANModule(pl.LightningModule):
         zeros = torch.zeros(images.shape[0], 1).to(self.device)
         zeros.type_as(images)
 
-        # generator
-        if optimizer_idx == 0:
-            # TODO style mixing
-            d_outputs = self.discriminator(generated_images)
-            g_loss = self.adversarial_criterion(d_outputs, ones)
-            self.log('g_loss', g_loss)
-
-            return g_loss
-
         # discriminator
-        if optimizer_idx == 1:
-            if batch_idx % 5 == 0:
-                d_real_outputs = self.discriminator(images)
-                real_loss = self.adversarial_criterion(d_real_outputs, ones)
-                d_fake_outputs = self.discriminator(generated_images)
-                fake_loss = self.adversarial_criterion(d_fake_outputs, zeros)
-                d_loss = real_loss + fake_loss
-                self.log('d_loss', d_loss)
+        d_opt.zero_grad()
+        d_real_outputs = self.discriminator(images)
+        real_loss = self.adversarial_criterion(d_real_outputs, ones)
+        self.manual_backward(real_loss)
+        d_fake_outputs = self.discriminator(generated_images)
+        fake_loss = self.adversarial_criterion(d_fake_outputs, zeros)
+        self.manual_backward(fake_loss)
+        d_loss = real_loss + fake_loss
+        self.log('d_loss', d_loss)
+        d_opt.step()
 
-                return d_loss
+        # generator
+        # TODO style mixing
+        g_opt.zero_grad()
+        d_outputs = self.discriminator(generated_images)
+        g_loss = self.adversarial_criterion(d_outputs, ones)
+        self.manual_backward(g_loss)
+        self.log('g_loss', g_loss)
+        g_opt.step()
 
     def validation_step(self, batch, batch_idx):
         pass
