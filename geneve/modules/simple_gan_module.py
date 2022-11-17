@@ -49,6 +49,8 @@ class SimpleGANModule(pl.LightningModule):
         fake_loss = self.adversarial_criterion(d_fake_outputs, zeros)
         d_loss = real_loss + fake_loss
         self.log('d_loss', d_loss)
+        self.log('d_real_acc', d_real_outputs.argmax().sum())
+        self.log('d_fake_acc', d_fake_outputs.argmax().sum())
         d_opt.zero_grad()
         self.manual_backward(d_loss)
         d_opt.step()

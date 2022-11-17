@@ -21,8 +21,7 @@ class SimpleGenerator(nn.Module):
             nn.ReLU(True),
             # state size. (ngf*2) x 16 x 16
             nn.ConvTranspose2d( ngf * 2, 3, 4, 2, 1, bias=False),
-            nn.BatchNorm2d(3),
-            nn.ReLU(True),
+            nn.Tanh(),
             # state size. (ngf) x 32 x 32
         )
 
