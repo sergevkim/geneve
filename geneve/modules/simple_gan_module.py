@@ -16,22 +16,26 @@ class SimpleGANModule(pl.LightningModule):
         self,
         generator: Module,
         discriminator: Module,
-        lr: float = 3e-4,
+        lr: float = 0.0002,
     ):
         super().__init__()
         self.generator = generator
         self.discriminator = discriminator
 
+        self.automatic_optimization = False
         self.adversarial_criterion = BCELoss()
         self.lr = lr
+
         self.generated_images_dir = Path('data/generated')
         self.generated_images_dir.mkdir(parents=True, exist_ok=True)
 
-    def training_step(self, batch, batch_idx, optimizer_idx):
+    def training_step(self, batch, batch_idx):
+        g_opt, d_opt = self.optimizers()
+
         images, _ = batch
 
         # sample noise
-        bs, channels, height, width = images.shape
+        bs = images.shape[0]
         w = torch.randn((bs, 128, 1, 1)).to(self.device)
         generated_images = self.generator(w)
 
@@ -39,24 +43,23 @@ class SimpleGANModule(pl.LightningModule):
         zeros = torch.zeros(images.shape[0], 1).to(self.device)
 
         # generator
-        if optimizer_idx == 0:
-            d_outputs = self.discriminator(generated_images)
-            g_loss = self.adversarial_criterion(d_outputs, ones)
-            self.log('g_loss', g_loss)
-
-            return g_loss
+        d_outputs = self.discriminator(generated_images)
+        g_loss = self.adversarial_criterion(d_outputs, ones)
+        self.log('g_loss', g_loss)
+        g_opt.zero_grad()
+        self.manual_backward(g_loss)
+        g_opt.step()
 
         # discriminator
-        if optimizer_idx == 1:
-            if batch_idx % 5 == 0:
-                d_real_outputs = self.discriminator(images)
-                real_loss = self.adversarial_criterion(d_real_outputs, ones)
-                d_fake_outputs = self.discriminator(generated_images)
-                fake_loss = self.adversarial_criterion(d_fake_outputs, zeros)
-                d_loss = real_loss + fake_loss
-                self.log('d_loss', d_loss)
-
-                return d_loss
+        d_real_outputs = self.discriminator(images)
+        real_loss = self.adversarial_criterion(d_real_outputs, ones)
+        d_fake_outputs = self.discriminator(generated_images)
+        fake_loss = self.adversarial_criterion(d_fake_outputs, zeros)
+        d_loss = real_loss + fake_loss
+        self.log('d_loss', d_loss)
+        d_opt.zero_grad()
+        self.manual_backward(d_loss)
+        d_opt.step()
 
     def validation_step(self, batch, batch_idx):
         pass
@@ -67,7 +70,7 @@ class SimpleGANModule(pl.LightningModule):
         generated_images = self.generator(w)
         images_grid = \
             torchvision.utils.make_grid(generated_images).cpu().numpy()
-        images_grid = einops.rearrange(images_grid, 'c h w -> h w c')
+        images_grid = einops.rearrange(images_grid, 'c h w -> h w c') * 256
         self.logger.experiment.log({"images": [wandb.Image(images_grid)]})
 
         for batch_idx in range(40):
@@ -91,7 +94,7 @@ class SimpleGANModule(pl.LightningModule):
         self.log('fid_score', fid_score)
 
     def configure_optimizers(self):
-        g_opt = Adam(self.generator.parameters(), lr=self.lr)
-        d_opt = Adam(self.discriminator.parameters(), lr=self.lr)
+        g_opt = Adam(self.generator.parameters(), lr=self.lr, betas=(0.5, 0.999))
+        d_opt = Adam(self.discriminator.parameters(), lr=self.lr, betas=(0.5, 0.999))
 
         return g_opt, d_opt
