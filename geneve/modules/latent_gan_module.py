@@ -60,7 +60,7 @@ class LatentGANModule(pl.LightningModule):
         d_real_outputs = self.discriminator(images)
         real_loss = self.adversarial_criterion(d_real_outputs, ones)
         self.manual_backward(real_loss)
-        d_fake_outputs = self.discriminator(generated_images)
+        d_fake_outputs = self.discriminator(generated_images.detach())
         fake_loss = self.adversarial_criterion(d_fake_outputs, zeros)
         self.manual_backward(fake_loss)
         d_loss = real_loss + fake_loss
