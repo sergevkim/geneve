@@ -43,23 +43,24 @@ class SimpleGANModule(pl.LightningModule):
         zeros = torch.zeros(images.shape[0], 1).to(self.device)
 
         # discriminator
+        d_opt.zero_grad()
         d_real_outputs = self.discriminator(images)
         real_loss = self.adversarial_criterion(d_real_outputs, ones)
+        self.manual_backward(real_loss)
         d_fake_outputs = self.discriminator(generated_images.detach())
         fake_loss = self.adversarial_criterion(d_fake_outputs, zeros)
+        self.manual_backward(fake_loss)
         d_loss = real_loss + fake_loss
         self.log('d_loss', d_loss)
         self.log('d_real_acc', d_real_outputs.argmax().sum())
         self.log('d_fake_acc', d_fake_outputs.argmax().sum())
-        d_opt.zero_grad()
-        self.manual_backward(d_loss)
         d_opt.step()
 
         # generator
+        g_opt.zero_grad()
         d_outputs = self.discriminator(generated_images)
         g_loss = self.adversarial_criterion(d_outputs, ones)
         self.log('g_loss', g_loss)
-        g_opt.zero_grad()
         self.manual_backward(g_loss)
         g_opt.step()
 
