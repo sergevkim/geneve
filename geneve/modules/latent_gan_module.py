@@ -24,6 +24,7 @@ class LatentGANModule(pl.LightningModule):
         self.generator = generator
         self.discriminator = discriminator
 
+        self.automatic_optimization = False
         self.adversarial_criterion = BCELoss()
         self.lr = lr
         self.generated_images_dir = Path('data/generated')
