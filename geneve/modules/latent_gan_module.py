@@ -29,7 +29,7 @@ class LatentGANModule(pl.LightningModule):
         self.generated_images_dir = Path('data/generated')
         self.generated_images_dir.mkdir(parents=True, exist_ok=True)
 
-        assert n_batches * batch_size >= 10000
+        assert n_batches * batch_size >= 5000
         self.batch_size = batch_size
         self.n_batches = n_batches
 
