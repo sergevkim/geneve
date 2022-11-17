@@ -85,21 +85,17 @@ class SynthesisNetwork(Module):
                 )
             )
         style_blocks_list.append(
-            Sequential(
-                StyleBlock(
-                    in_channels=in_channels,
-                    out_channels=out_channels,
-                    latent_dim=latent_dim,
-                ),
-                Conv2d(
-                    in_channels=in_channels,
-                    out_channels=out_channels,
-                    kernel_size=1,
-                ),
-                Tanh(),
+            StyleBlock(
+                in_channels=in_channels,
+                out_channels=out_channels,
+                latent_dim=latent_dim,
             )
         )
         self.style_blocks = ModuleList(style_blocks_list)
+        self.last = Sequential(
+            Conv2d(out_channels, out_channels, kernel_size=(1, 1)),
+            Tanh(),
+        )
 
     def forward(self, w, x=None):
         if x is None:
@@ -115,6 +111,8 @@ class SynthesisNetwork(Module):
         for block in self.style_blocks:
             x = x + 0.1 * noise
             x = block(x, w)
+
+        x = self.last(x)
 
         return x
 
